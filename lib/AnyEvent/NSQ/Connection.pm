@@ -11,19 +11,17 @@ use Carp;
 use JSON::XS ();
 use Sys::Hostname;
 
-# Options from the python client, we might want to support later:
-#   timeout=1.0
-#   heartbeat_interval=30
+# Options from the NSQ protocol spec, we might want to support later:
+#   output_buffer_size=16384
+#   output_buffer_timeout=250
 #   tls_v1=False
 #   tls_options=None
 #   snappy=False
 #   deflate=False
 #   deflate_level=6
-#   output_buffer_size=16384
-#   output_buffer_timeout=250
 #   sample_rate=0
+#   msg_timeout=30000
 #   auth_secret=None
-
 
 ## Constructor
 
@@ -34,6 +32,7 @@ sub new {
     { hostname        => hostname(),
       connect_timeout => undef,                 ## use kernel default
       requeue_delay   => 90,
+      message_cb      => sub { print pop },
       error_cb        => sub { carp($_[2]) },
       disconnect_cb   => sub { },
     },
@@ -43,7 +42,7 @@ sub new {
   $self->{host} = delete $args{host} or croak q{FATAL: required 'host' parameter is missing};
   $self->{port} = delete $args{port} or croak q{FATAL: required 'port' parameter is missing};
 
-  for my $p (qw( client_id hostname connect_timeout connect_cb disconnect_cb error_cb )) {
+  for my $p (qw( client_id hostname heartbeat_interval user_agent connect_timeout connect_cb message_cb disconnect_cb error_cb heartbeat_cb )) {
     next unless exists $args{$p} and defined $args{$p};
     $self->{$p} = delete $args{$p};
     croak(qq{FATAL: parameter '$p' must be a CodeRef}) if $p =~ m{_cb$} and ref($self->{$p}) ne 'CODE';
@@ -121,11 +120,11 @@ sub subscribe {
   my ($self, $topic, $chan, $cb) = @_;
   return unless my $hdl = $self->{handle};
 
-  $self->{message_cb}    = $cb;
+  $cb //= sub { };
   $self->{is_subscriber} = 1;
 
   $hdl->push_write("SUB $topic $chan\012");
-  $self->_on_next_success_frame(sub { });    ## We don't care about the success ok, and errors will kill us
+  $self->_on_next_success_frame($cb);
 
   return;
 }
@@ -214,12 +213,13 @@ sub nop {
 sub _build_identity_payload {
   my ($self, @rest) = @_;
 
+  my $ua = "AnyEvent::NSQ::Connection/" . ($AnyEvent::NSQ::Connection::VERSION || 'developer');
+
   my %data = (
     client_id => $self->{client_id},
-    short_id  => $self->{client_id},
     hostname  => $self->{hostname},
-    long_id   => $self->{hostname},
-    ## TODO: heartbeat_interval => ...,  ## milliseconds between heartbeats
+    heartbeat_interval => $self->{heartbeat_interval} // 30000,
+    user_agent => $self->{user_agent} // $ua,
     ## TODO: output_buffer_size => ...,
     ## TODO: output_buffer_timeout => ...,
     ## TODO: sample_rate => ...,
@@ -228,9 +228,7 @@ sub _build_identity_payload {
     feature_negotiation => \1,
   );
 
-  my $ua = "AnyEvent::NSQ::Connection/" . ($AnyEvent::NSQ::Connection::VERSION || 'developer');
-  if (!$data{user_agent}) { $data{user_agent} = $ua }
-  elsif (substr($data{user_agent}, -1) eq ' ') { $data{user_agent} .= $ua }
+  if (substr($data{user_agent}, -1) eq ' ') { $data{user_agent} .= $ua }
 
   for my $k (keys %data) {
     delete $data{$k} unless defined $data{$k};
@@ -319,8 +317,8 @@ sub _process_incoming_frame {
   if    ($frame_type == 0) { $res = $self->_process_success_frame($msg) }
   elsif ($frame_type == 1) { $res = $self->_process_error_frame($msg) }
   elsif ($frame_type == 2) { $res = $self->_process_message_frame($msg) }
-
-  # no else, be liberal in what you accept and all of that...
+  else                     { AE::log alert => "Unknown message frame ($frame_type)";
+                             $self->_force_disconnect }
 
   return $res;
 }
@@ -331,6 +329,7 @@ sub _process_success_frame {
 
   if ($msg eq '_heartbeat_') {
     $self->nop;
+    $self->{heartbeat_cb}->($self) if 'CODE' eq ref $self->{heartbeat_cb};
   }
   else {
     my $info = { msg => $msg };
