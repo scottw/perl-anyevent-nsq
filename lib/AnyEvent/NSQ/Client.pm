@@ -133,7 +133,7 @@ sub _start_nsqd_connection {
   my $conns = $self->{nsqd_conns} ||= {};
   return if $conns->{$nsqd_tcp_address};
 
-  my ($host, $port) = AnyEvent::Socket::parse_hostport($nsqd_tcp_address, 4150);    ## 4150 is the default port for nsqd
+  my ($host, $port) = AnyEvent::Socket::parse_hostport($nsqd_tcp_address);  ## must be ip/hostname:port
   croak(qq{FATAL: could not parse '$nsqd_tcp_address' as a valid address/port combination}) unless $host and $port;
 
   my %conn = (host => $host, port => $port);
@@ -141,7 +141,7 @@ sub _start_nsqd_connection {
     $conn{$arg} = $self->{$arg} if exists $self->{$arg};
   }
 
-  $conn{connect_cb}    = sub { $self->_connected(@_) };
+  $conn{connect_cb}    = sub { $self->_connected(@_, $nsqd_tcp_address) };
   $conn{disconnect_cb} = sub { $self->_disconnected(@_) };
 
   $conns->{$nsqd_tcp_address}{conn}  = AnyEvent::NSQ::Connection->new(%conn);
@@ -159,12 +159,16 @@ sub _random_connected_conn {
 
 #### Hooks for the main states of the connection
 sub _connected {
-  my $self = shift;
+    my $self             = shift;
+    my $nsqd_tcp_address = pop;
 
-  ## FIXME: access $nsqd_tcp_address, and update state
-
-  $self->{connect_cb}->(@_) if $self->{connect_cb};
-  $_[0]->identify(sub { $self->_identified(@_) });
+    $self->{connect_cb}->(@_) if $self->{connect_cb};
+    $_[0]->identify(
+        sub {
+            $self->_identified(@_);
+            $self->{nsqd_conns}->{$nsqd_tcp_address}->{state} = 'connected'
+        }
+    );
 }
 
 sub _identified   { $_[0]->{identify_cb}->(@_)   if $_[0]->{identify_cb} }
