@@ -7,13 +7,7 @@ use AnyEvent;
 use AnyEvent::NSQ::Connection;
 use Data::Dumper;
 
-if ($ENV{NSQD_HOST}) {
-    plan tests => 6;
-}
-
-else {
-    plan skip_all => "NSQD_HOST environment variable not set";
-}
+plan $ENV{NSQD_HOST} ? (tests => 6) : (skip_all => "NSQD_HOST environment variable not set");
 
 my $cv_connect   = AE::cv;
 my $cv_heartbeat = AE::cv;
@@ -53,6 +47,5 @@ is($msg->{message}, "hi mom!", "message received");
 $c->ready(0);
 
 $c->mark_as_done_msg($msg->{message_id});
-
 
 exit;
