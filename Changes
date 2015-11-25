@@ -1,4 +1,8 @@
 Revision history for AnyEvent-NSQ
- 
+
 {{$NEXT}}
         * Initial release
+
+0.01_001   2015-11-25
+        * Dev version (denoted by _xxx version string).
+        * Added EU::MM-related distribution files.
