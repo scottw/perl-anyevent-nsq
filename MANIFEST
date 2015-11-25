@@ -1,0 +1,19 @@
+.proverc
+.travis.yml
+Changes
+dist.ini
+examples/consumer.pl
+examples/http_publisher.pl
+examples/publisher.pl
+lib/AnyEvent/NSQ.pm
+lib/AnyEvent/NSQ/Client.pm
+lib/AnyEvent/NSQ/Connection.pm
+lib/AnyEvent/NSQ/Reader.pm
+lib/AnyEvent/NSQ/Writer.pm
+Makefile.PL
+MANIFEST			This list of files
+META.json
+META.yml
+t/10-connection.t
+t/10-reader.t
+t/20-client.t
