@@ -1,0 +1,27 @@
+---
+abstract: unknown
+author:
+  - 'Scott Wiersdorf <scottw@bluehost.com>'
+build_requires:
+  Test::More: '0.98'
+configure_requires:
+  ExtUtils::MakeMaker: '6.56'
+dynamic_config: 1
+generated_by: 'ExtUtils::MakeMaker version 7.0401, CPAN::Meta::Converter version 2.150001'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: '1.4'
+name: AnyEvent-NSQ
+no_index:
+  directory:
+    - t
+    - inc
+requires:
+  AnyEvent: '0.0'
+  EV: '0.0'
+  perl: '5.018000'
+resources:
+  Metaspec:
+    version: 2
+version: 0.01001
