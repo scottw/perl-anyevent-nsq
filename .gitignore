@@ -13,3 +13,6 @@ pod2htm*.tmp
 AnyEvent-NSQ-*
 MYMETA.*
 nytprof*
+.carmel
+.perl-version
+cpanfile
