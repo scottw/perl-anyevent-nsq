@@ -4,21 +4,26 @@ use strict;
 use warnings;
 use Test::More;
 use AnyEvent;
+use AnyEvent::Socket ();
 use AnyEvent::NSQ::Connection;
 use Data::Dumper;
 
-plan $ENV{NSQD_HOST} ? (tests => 6) : (skip_all => "NSQD_HOST environment variable not set");
+plan $ENV{NSQD_HOSTPORT} ? (tests => 7) : (skip_all => "NSQD_HOSTPORT environment variable not set");
 
-my $cv_connect   = AE::cv;
-my $cv_heartbeat = AE::cv;
+my $cv_connect    = AE::cv;
+my $cv_heartbeat  = AE::cv;
+my $cv_error      = AE::cv;
+
+my ($host, $port) = AnyEvent::Socket::parse_hostport($ENV{NSQD_HOSTPORT});
 
 my $c = AnyEvent::NSQ::Connection->new(
-    host               => $ENV{NSQD_HOST},
-    port               => $ENV{NSQD_PORT} // 4150,
+    host               => $host,
+    port               => $port,
     user_agent         => 'some-nsq-agent',
     connect_cb         => sub { $cv_connect->send(1) },
     heartbeat_interval => 1000,
     heartbeat_cb       => sub { $cv_heartbeat->send(1) },
+    error_cb           => sub { $cv_error->send(shift) },
 );
 
 ok($cv_connect->recv, "AE::NSQ connection created");
@@ -46,6 +51,11 @@ my $msg = $cv_message->recv;
 is($msg->{message}, "hi mom!", "message received");
 $c->ready(0);
 
-$c->mark_as_done_msg($msg->{message_id});
+$c->mark_as_done_msg($msg);
+
+$c->subscribe(topeka => weather => sub { });
+
+like($cv_error->recv, qr/E_INVALID cannot SUB in current state/,
+     "cannot resubscribe");
 
 exit;

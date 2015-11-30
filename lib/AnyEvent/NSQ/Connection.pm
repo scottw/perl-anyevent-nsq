@@ -33,8 +33,8 @@ sub new {
       connect_timeout => undef,                 ## use kernel default
       requeue_delay   => 90,
       message_cb      => sub { print pop },
-      error_cb        => sub { carp($_[2]) },
-      disconnect_cb   => sub { },
+      error_cb        => sub { AE::log fatal => shift },
+      disconnect_cb   => sub {  },
     },
     $class
   );
@@ -337,7 +337,8 @@ sub _process_success_frame {
       $info = eval { JSON::XS::decode_json($msg) };
       unless ($info) {
         $self->_log_error(qq{unexpected/invalid JSON response '$msg'});
-        return;
+        $self->_disconnected;
+        $self->{error_cb}->($msg) if ref $self->{error_cb};
       }
     }
 
@@ -357,8 +358,8 @@ sub _process_error_frame {
   my ($self, $msg) = @_;
 
   $self->_log_error(qq{received error frame '$msg'});
-
-  return;
+  $self->_disconnected;
+  $self->{error_cb}->($msg) if ref $self->{error_cb};
 }
 
 ## Process regular message frames, callback, and deal with RDY state
