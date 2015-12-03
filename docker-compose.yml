@@ -1,0 +1,23 @@
+# lookupd:
+#   image: nsqio/nsq
+#   ports:
+#     - "4160:4160"
+#     - "4161:4161"
+#   net: "nsq-plane"
+#   command: /nsqlookupd
+
+nsq1:
+  image: nsqio/nsq
+  ports:
+    - "4150:4150"
+    - "4151:4151"
+  net: "nsq-plane"
+  command: /nsqd -verbose -broadcast-address=nsq-plane -lookupd-tcp-address=lookupd:4160
+
+nsq2:
+  image: nsqio/nsq
+  ports:
+    - "4154:4150"
+    - "4155:4151"
+  net: "nsq-plane"
+  command: /nsqd -verbose -broadcast-address=nsq-plane -lookupd-tcp-address=lookupd:4160
