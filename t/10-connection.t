@@ -8,13 +8,17 @@ use AnyEvent::Socket ();
 use AnyEvent::NSQ::Connection;
 use Data::Dumper;
 
-plan $ENV{NSQD_HOSTPORT} ? (tests => 7) : (skip_all => "NSQD_HOSTPORT environment variable not set");
+plan $ENV{NSQD_HOSTPORT}
+  ? (tests => 7)
+  : (skip_all => "NSQD_HOSTPORT environment variable not set");
 
 my $cv_connect    = AE::cv;
 my $cv_heartbeat  = AE::cv;
 my $cv_error      = AE::cv;
 
-my ($host, $port) = AnyEvent::Socket::parse_hostport($ENV{NSQD_HOSTPORT});
+my @nsqd = split /,/ => $ENV{NSQD_HOSTPORT};
+
+my ($host, $port) = AnyEvent::Socket::parse_hostport($nsqd[0]);
 
 my $c = AnyEvent::NSQ::Connection->new(
     host               => $host,
