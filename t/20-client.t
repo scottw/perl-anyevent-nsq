@@ -13,6 +13,8 @@ plan $ENV{NSQD_HOSTPORT} && $ENV{NSQLOOKUPD_HOSTPORT}
   ? (tests => 10)
   : (skip_all => "NSQD_HOSTPORT and NSQLOOKUPD_HOSTPORT environment variables not set");
 
+my @nsqd = split /,/ => $ENV{NSQD_HOSTPORT};
+
 my $hn = `hostname`;
 chomp $hn;
 
@@ -34,8 +36,6 @@ $cv_lookup->recv;
 $cv_lookup = AE::cv;  ## reset the condvar
 
 is_deeply($look->{nsqd_tcp_addresses}, [], "no nsqd found");
-
-my @nsqd = split /,/ => $ENV{NSQD_HOSTPORT};
 
 ## now publish and create a topic
 {
